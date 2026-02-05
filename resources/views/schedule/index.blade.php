@@ -2,16 +2,31 @@
 
 @section('content')
 <div class="container">
-    <h1 class="mb-3">Daily Schedule</h1>
+    <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+        <div>
+            <h1 class="mb-1 text-white">Daily Schedule</h1>
+            <div class="text-white-50 small">2:00 PM–11:30 PM • 30-minute slots</div>
+        </div>
+    </div>
 
-    <form method="GET" action="{{ route('schedule.index') }}" class="mb-3 row g-2">
-        <div class="col-auto">
-            <input type="date" name="date" value="{{ $date }}" class="form-control">
+    <div class="app-card mb-3">
+        <div class="app-card-header p-3">
+            <form method="GET" action="{{ route('schedule.index') }}" class="row g-2 align-items-end">
+                <div class="col-12 col-md-auto">
+                    <label class="form-label mb-1 text-muted small">Select date</label>
+                    <input type="date" name="date" value="{{ $date }}" class="form-control">
+                </div>
+                <div class="col-12 col-md-auto">
+                    <button class="btn btn-outline-secondary w-100">View Day</button>
+                </div>
+                <div class="col-12 col-md-auto ms-md-auto">
+                    <div class="small text-muted">
+                        Tip: leave a slot blank to clear it.
+                    </div>
+                </div>
+            </form>
         </div>
-        <div class="col-auto">
-            <button class="btn btn-secondary">Change Day</button>
-        </div>
-    </form>
+    </div>
 
     @if(session('status'))
         <div class="alert alert-success">{{ session('status') }}</div>
@@ -21,20 +36,30 @@
         @csrf
         <input type="hidden" name="date" value="{{ $date }}">
 
-        <table class="table table-bordered table-sm bg-white">
-            <thead class="table-light">
+        <div class="app-card">
+            <div class="p-3 d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                <div>
+                    <div class="fw-semibold">Schedule for <span class="text-primary">{{ $date }}</span></div>
+                    <div class="small text-muted">Time is shown in 12-hour format with 24-hour beside it.</div>
+                </div>
+                <button class="btn btn-gradient px-4">Save / Update</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered table-sm bg-white mb-0">
+                    <thead class="table-light">
                 <tr>
                     <th style="width: 150px;">Time</th>
                     <th style="width: 220px;">Student Name</th>
                     <th style="width: 80px;">Age</th>
                     <th>Notes</th>
                 </tr>
-            </thead>
-            <tbody>
+                    </thead>
+                    <tbody>
             @foreach($period as $time)
                 @php
-                    $start  = $time->format('H:i:s');
-                    $lesson = $lessons[$start] ?? null;
+                    $slotKey = $time->format('H:i:s');
+                    $lesson = $lessons[$slotKey] ?? null;
                 @endphp
                 <tr>
                     <td>
@@ -44,28 +69,28 @@
                     </td>
                     <td>
                         <input type="text"
-                               name="slots[{{ $time->format('H:i:s') }}][student_name]"
+                               name="slots[{{ $slotKey }}][student_name]"
                                class="form-control form-control-sm"
-                               value="{{ old("slots.{$time->format('H:i:s')}.student_name", $lesson->student_name ?? '') }}">
+                               value="{{ old("slots.{$slotKey}.student_name", $lesson->student_name ?? '') }}">
                     </td>
                     <td>
                         <input type="text"
-                               name="slots[{{ $time->format('H:i:s') }}][age]"
+                               name="slots[{{ $slotKey }}][age]"
                                class="form-control form-control-sm"
-                               value="{{ old("slots.{$time->format('H:i:s')}.age", $lesson->age ?? '') }}">
+                               value="{{ old("slots.{$slotKey}.age", $lesson->age ?? '') }}">
                     </td>
                     <td>
                         <input type="text"
-                               name="slots[{{ $time->format('H:i:s') }}][notes]"
+                               name="slots[{{ $slotKey }}][notes]"
                                class="form-control form-control-sm"
-                               value="{{ old("slots.{$time->format('H:i:s')}.notes", $lesson->notes ?? '') }}">
+                               value="{{ old("slots.{$slotKey}.notes", $lesson->notes ?? '') }}">
                     </td>
                 </tr>
             @endforeach
-            </tbody>
-        </table>
-
-        <button class="btn btn-primary">Save Schedule</button>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </form>
 </div>
 @endsection

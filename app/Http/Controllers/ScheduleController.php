@@ -25,7 +25,8 @@ class ScheduleController extends Controller
         $lessons = Lesson::where('user_id', $userId)
             ->whereDate('date', $date)
             ->get()
-            ->keyBy('start_time'); // key by 'HH:MM:SS'
+            // Key strictly by the raw DB time string (HH:MM:SS)
+            ->keyBy(fn (Lesson $lesson) => $lesson->getRawOriginal('start_time'));
 
         return view('schedule.index', compact('date', 'period', 'lessons'));
     }

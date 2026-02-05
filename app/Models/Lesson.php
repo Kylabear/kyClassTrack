@@ -20,7 +20,9 @@ class Lesson extends Model
 
     protected $casts = [
         'date' => 'date',
-        'start_time' => 'datetime:H:i',
+        // Keep start_time as a plain time string (HH:MM:SS).
+        // Casting to datetime causes key mismatches when loading rows back into the daily schedule.
+        'start_time' => 'string',
     ];
 }
 
