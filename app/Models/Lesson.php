@@ -16,13 +16,21 @@ class Lesson extends Model
         'student_name',
         'age',
         'notes',
+        'is_fixed_student',
     ];
 
     protected $casts = [
         'date' => 'date',
-        // Keep start_time as a plain time string (HH:MM:SS).
-        // Casting to datetime causes key mismatches when loading rows back into the daily schedule.
         'start_time' => 'string',
+        'is_fixed_student' => 'boolean',
     ];
+
+    // Helper: check if student is fixed
+    public static function isFixedStudent($userId, $studentName)
+    {
+        return self::where('user_id', $userId)
+            ->where('student_name', $studentName)
+            ->count() >= 5;
+    }
 }
 

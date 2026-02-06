@@ -16,9 +16,23 @@ class ReportController extends Controller
     public function monthly(Request $request)
     {
         $userId = 1;
-        $month = $request->input('month', now()->format('Y-m')); // e.g. "2026-02"
+        $firstDay = Carbon::create(2026, 1, 16);
+        $monthRaw = $request->input('month', now()->format('Y-m'));
+        // Always extract only the year and month (Y-m) from input
+        if (preg_match('/^(\d{4})-(\d{2})/', $monthRaw, $matches)) {
+            $month = $matches[1] . '-' . $matches[2];
+        } else {
+            $month = now()->format('Y-m');
+        }
 
-        $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        // Prevent selecting months before January 2026
+        $selectedMonth = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        if ($selectedMonth->lessThan($firstDay->copy()->startOfMonth())) {
+            $selectedMonth = $firstDay->copy()->startOfMonth();
+            $month = $selectedMonth->format('Y-m');
+        }
+
+        $start = $selectedMonth;
         $end   = (clone $start)->endOfMonth();
 
         $classesPerDay = Lesson::select(
@@ -32,6 +46,8 @@ class ReportController extends Controller
 
         $days = [];
         foreach (CarbonPeriod::create($start, $end) as $day) {
+            // Only include days from Jan 16, 2026 onward
+            if ($day->lessThan($firstDay)) continue;
             $dateStr = $day->toDateString();
             $count   = $classesPerDay[$dateStr] ?? 0;
             $days[] = [
@@ -47,12 +63,29 @@ class ReportController extends Controller
         $totalAbsent  = collect($days)->where('absent', true)->count();
         $totalSalary  = $totalClasses * 60;
 
+        // All-time summary (from firstDay to today)
+        $allTimeEnd = now()->toDateString();
+
+        // All-time present days: count unique days with at least one class
+        $allTimePresentDays = Lesson::where('user_id', $userId)
+            ->whereBetween('date', [$firstDay->toDateString(), $allTimeEnd])
+            ->distinct('date')
+            ->count('date');
+
+        $allTimeClasses = Lesson::where('user_id', $userId)
+            ->whereBetween('date', [$firstDay->toDateString(), $allTimeEnd])
+            ->count();
+        $allTimeSalary = $allTimeClasses * 60;
+
         return view('reports.monthly', compact(
             'month',
             'days',
             'totalClasses',
             'totalAbsent',
-            'totalSalary'
+            'totalSalary',
+            'allTimeClasses',
+            'allTimeSalary',
+            'allTimePresentDays'
         ));
     }
 }

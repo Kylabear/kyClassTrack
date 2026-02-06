@@ -14,7 +14,7 @@
             <form method="GET" action="{{ route('reports.monthly') }}" class="row g-2 align-items-end">
                 <div class="col-12 col-md-auto">
                     <label class="form-label mb-1 text-muted small">Select month</label>
-                    <input type="month" name="month" value="{{ $month }}" class="form-control">
+                    <input type="date" name="month" value="{{ $month }}-01" class="form-control" min="2026-01-16" max="{{ now()->format('Y-m-d') }}">
                 </div>
                 <div class="col-12 col-md-auto">
                     <button class="btn btn-outline-secondary w-100">View Month</button>
@@ -57,6 +57,12 @@
                 <th>{{ $totalClasses }} classes</th>
                 <th>{{ $totalAbsent }} days absent</th>
                 <th>{{ number_format($totalSalary, 2) }} PHP</th>
+            </tr>
+            <tr>
+                <th colspan="2">All-Time (since Jan 16, 2026)</th>
+                <th>{{ $allTimeClasses }} classes</th>
+                <th>{{ $allTimePresentDays }} days present</th>
+                <th>{{ number_format($allTimeSalary, 2) }} PHP</th>
             </tr>
                 </tfoot>
             </table>

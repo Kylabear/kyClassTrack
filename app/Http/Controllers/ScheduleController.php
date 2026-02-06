@@ -10,8 +10,73 @@ use Illuminate\Http\Request;
 class ScheduleController extends Controller
 {
     /**
-    * Show the daily schedule.
-    */
+     * Show the weekly schedule (upcoming and past).
+     */
+    public function weekly(Request $request)
+    {
+        $userId = 1;
+        $today = now()->toDateString();
+        $startOfWeek = now()->startOfWeek()->toDateString();
+        $endOfWeek = now()->endOfWeek()->toDateString();
+
+        $lessons = Lesson::where('user_id', $userId)
+            ->whereBetween('date', [$startOfWeek, $endOfWeek])
+            ->orderBy('date')
+            ->orderBy('start_time')
+            ->get();
+
+        $grouped = $lessons->groupBy('date');
+
+        return view('schedule.weekly', [
+            'grouped' => $grouped,
+            'today' => $today,
+            'startOfWeek' => $startOfWeek,
+            'endOfWeek' => $endOfWeek,
+        ]);
+    }
+
+    /**
+     * Show upcoming schedules (future lessons only).
+     */
+    public function upcoming(Request $request)
+    {
+        $userId = 1;
+        $today = now()->toDateString();
+        $lessons = Lesson::where('user_id', $userId)
+            ->where('date', '>=', $today)
+            ->orderBy('date')
+            ->orderBy('start_time')
+            ->get();
+        return view('schedule.upcoming', ['lessons' => $lessons]);
+    }
+
+    /**
+     * Show past schedules (past lessons only).
+     */
+    public function past(Request $request)
+    {
+        $userId = 1;
+        $today = now()->toDateString();
+        $lessons = Lesson::where('user_id', $userId)
+            ->where('date', '<', $today)
+            ->orderByDesc('date')
+            ->orderBy('start_time')
+            ->get();
+        return view('schedule.past', ['lessons' => $lessons]);
+    }
+
+    /**
+     * Delete a lesson (schedule entry).
+     */
+    public function delete(Request $request, $id)
+    {
+        Lesson::where('id', $id)->delete();
+        return back()->with('status', 'Schedule entry deleted.');
+    }
+
+    /**
+     * Show the daily schedule.
+     */
     public function index(Request $request)
     {
         // In a real Laravel app, you would use $request->user()->id.
@@ -59,8 +124,17 @@ class ScheduleController extends Controller
         }
 
         $slots = $request->input('slots', []); // [ '14:00:00' => [...], ... ]
+        // Debug output
+        
+        \Log::info('Schedule Save Request', [
+            'date' => $date,
+            'slots' => $slots,
+        ]);
 
+        $filledCount = 0;
         foreach ($slots as $time => $data) {
+            // Always use H:i:s for start_time
+            $startTime = date('H:i:s', strtotime($time));
             $hasData = filled($data['student_name'] ?? null)
                 || filled($data['age'] ?? null)
                 || filled($data['notes'] ?? null);
@@ -68,35 +142,58 @@ class ScheduleController extends Controller
             if (! $hasData) {
                 Lesson::where('user_id', $userId)
                     ->whereDate('date', $date)
-                    ->where('start_time', $time)
+                    ->where('start_time', $startTime)
                     ->delete();
                 continue;
+            }
+
+            $filledCount++;
+            $studentName = $data['student_name'] ?? null;
+            $isFixed = false;
+            if ($studentName) {
+                $count = Lesson::where('user_id', $userId)
+                    ->where('student_name', $studentName)
+                    ->count();
+                $isFixed = $count >= 4; // This will be the 5th booking
             }
 
             Lesson::updateOrCreate(
                 [
                     'user_id'     => $userId,
                     'date'        => $date,
-                    'start_time'  => $time,
+                    'start_time'  => $startTime,
                 ],
                 [
-                    'student_name' => $data['student_name'] ?? null,
+                    'student_name' => $studentName,
                     'age'          => $data['age'] ?? null,
                     'notes'        => $data['notes'] ?? null,
+                    'is_fixed_student' => $isFixed,
                 ]
             );
         }
 
-        $scheduleDay->forceFill([
-            'is_locked' => true,
-            'locked_at' => now(),
-        ])->save();
+        \Log::info('Schedule Save Filled Count', [
+            'filledCount' => $filledCount,
+        ]);
+
+        if ($filledCount > 0) {
+            $scheduleDay->forceFill([
+                'is_locked' => true,
+                'locked_at' => now(),
+            ])->save();
+            $status = 'Schedule saved and locked.';
+        } else {
+            $scheduleDay->forceFill([
+                'is_locked' => false,
+                'locked_at' => null,
+            ])->save();
+            $status = 'No schedule placed. Day remains editable.';
+        }
 
         return redirect()
             ->route('schedule.index', ['date' => $date])
-            ->with('status', 'Schedule saved and locked.');
+            ->with('status', $status);
     }
-
     /**
      * Unlock a day's schedule so it can be edited.
      */
@@ -120,4 +217,5 @@ class ScheduleController extends Controller
             ->with('status', 'Editing enabled. Make your changes, then click Save to lock again.');
     }
 }
+
 

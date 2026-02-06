@@ -1,3 +1,9 @@
+    @if(session('status') && request('slots'))
+        <div class="alert alert-warning mt-2">
+            <strong>Debug:</strong> Slots POSTed:<br>
+            <pre>{{ print_r(request('slots'), true) }}</pre>
+        </div>
+    @endif
 @extends('layouts.app')
 
 @section('content')
@@ -36,8 +42,17 @@
         </div>
     </div>
 
+
     @if(session('status'))
-        <div class="alert alert-success">{{ session('status') }}</div>
+        <div id="toast-bar" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; min-width: 250px; background: #333; color: #fff; padding: 16px 24px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); font-size: 1rem; opacity: 0.95;">
+            {{ session('status') }}
+        </div>
+        <script>
+            setTimeout(function() {
+                var toast = document.getElementById('toast-bar');
+                if (toast) toast.style.display = 'none';
+            }, 3500);
+        </script>
     @endif
 
     <div class="app-card">
@@ -47,83 +62,75 @@
                 <div class="small text-muted">Time is shown in 12-hour format with 24-hour beside it.</div>
             </div>
             <div class="d-flex flex-wrap gap-2">
-                @if($isLocked)
+                @php
+                    $hasAnySchedule = $lessons->count() > 0;
+                @endphp
+                {{-- Only show Update button if locked and has a schedule --}}
+                @if($isLocked && $hasAnySchedule)
                     <form method="POST" action="{{ route('schedule.unlock') }}">
                         @csrf
                         <input type="hidden" name="date" value="{{ $date }}">
                         <button class="btn btn-outline-secondary px-4">Update</button>
                     </form>
-                @else
-                    <form method="POST" action="{{ route('schedule.save') }}">
-                        @csrf
-                        <input type="hidden" name="date" value="{{ $date }}">
-                        <button class="btn btn-gradient px-4">Save</button>
-                    </form>
                 @endif
             </div>
         </div>
 
-        {{-- When locked, show a notice and disable editing --}}
-        @if($isLocked)
-            <div class="px-3 pb-2">
-                <div class="alert alert-info mb-0">
-                    This schedule is locked. Click <strong>Update</strong> to enable editing.
+        {{-- Show the form if NOT locked, OR if locked but has NO schedule (so user can add schedule) --}}
+        @if(!$isLocked || ($isLocked && !$hasAnySchedule))
+            <form method="POST" action="{{ route('schedule.save') }}">
+                @csrf
+                <input type="hidden" name="date" value="{{ $date }}">
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered table-sm bg-white mb-0">
+                        <thead class="table-light">
+                    <tr>
+                        <th style="width: 150px;">Time</th>
+                        <th style="width: 220px;">Student Name</th>
+                        <th style="width: 80px;">Age</th>
+                        <th>Notes</th>
+                    </tr>
+                        </thead>
+                        <tbody>
+                @foreach($period as $time)
+                    @php
+                        $slotKey = $time->format('H:i:s');
+                        $lesson = $lessons[$slotKey] ?? null;
+                    @endphp
+                    <tr>
+                        <td>
+                            {{ $time->format('g:i A') }}
+                            <br>
+                            <small class="text-muted">{{ $time->format('H:i') }}</small>
+                        </td>
+                        <td>
+                            <input type="text"
+                                   name="slots[{{ $slotKey }}][student_name]"
+                                   class="form-control form-control-sm"
+                                   value="{{ old("slots.{$slotKey}.student_name", $lesson->student_name ?? '') }}">
+                        </td>
+                        <td>
+                            <input type="text"
+                                   name="slots[{{ $slotKey }}][age]"
+                                   class="form-control form-control-sm"
+                                   value="{{ old("slots.{$slotKey}.age", $lesson->age ?? '') }}">
+                        </td>
+                        <td>
+                            <input type="text"
+                                   name="slots[{{ $slotKey }}][notes]"
+                                   class="form-control form-control-sm"
+                                   value="{{ old("slots.{$slotKey}.notes", $lesson->notes ?? '') }}">
+                        </td>
+                    </tr>
+                @endforeach
+                        </tbody>
+                    </table>
                 </div>
-            </div>
+                <div class="mt-3 text-end">
+                    <button class="btn btn-gradient px-4">Save</button>
+                </div>
+            </form>
         @endif
-
-        <form method="POST" action="{{ route('schedule.save') }}">
-            @csrf
-            <input type="hidden" name="date" value="{{ $date }}">
-            <div class="table-responsive">
-                <table class="table table-hover table-bordered table-sm bg-white mb-0">
-                    <thead class="table-light">
-                <tr>
-                    <th style="width: 150px;">Time</th>
-                    <th style="width: 220px;">Student Name</th>
-                    <th style="width: 80px;">Age</th>
-                    <th>Notes</th>
-                </tr>
-                    </thead>
-                    <tbody>
-            @foreach($period as $time)
-                @php
-                    $slotKey = $time->format('H:i:s');
-                    $lesson = $lessons[$slotKey] ?? null;
-                @endphp
-                <tr>
-                    <td>
-                        {{ $time->format('g:i A') }}
-                        <br>
-                        <small class="text-muted">{{ $time->format('H:i') }}</small>
-                    </td>
-                    <td>
-                        <input type="text"
-                               name="slots[{{ $slotKey }}][student_name]"
-                               class="form-control form-control-sm"
-                               @disabled($isLocked)
-                               value="{{ old("slots.{$slotKey}.student_name", $lesson->student_name ?? '') }}">
-                    </td>
-                    <td>
-                        <input type="text"
-                               name="slots[{{ $slotKey }}][age]"
-                               class="form-control form-control-sm"
-                               @disabled($isLocked)
-                               value="{{ old("slots.{$slotKey}.age", $lesson->age ?? '') }}">
-                    </td>
-                    <td>
-                        <input type="text"
-                               name="slots[{{ $slotKey }}][notes]"
-                               class="form-control form-control-sm"
-                               @disabled($isLocked)
-                               value="{{ old("slots.{$slotKey}.notes", $lesson->notes ?? '') }}">
-                    </td>
-                </tr>
-            @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </form>
     </div>
 </div>
 @endsection

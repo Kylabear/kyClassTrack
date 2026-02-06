@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('student_name')->nullable();
             $table->string('age')->nullable();
             $table->text('notes')->nullable();
+            $table->boolean('is_fixed_student')->default(false);
             $table->timestamps();
 
             // Ensure one lesson per time slot per day per teacher
